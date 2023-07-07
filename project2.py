@@ -60,7 +60,7 @@ class Agent(object):
             #  过一段时间进行更新同步主网络
         self.learning_count += 1
         #  计数，这一部分是隔一段时间将目标网络从主网络复制到主网络
-
+        batch=0
         # random choose batch_size sample and 对应进行分类
         state = torch.FloatTensor([x[0] for x in batch])
         action = torch.LongTensor([[x[1]] for x in batch])
@@ -119,5 +119,5 @@ for i_episode in range(TOTAL_EPISODES):
             state = next_state
             if done:
                 break
-        print('episode: {} , total_reward: {}'.format(i_episode, round(total_reward, 3)))
- env.close()
+            print('episode: {} , total_reward: {}'.format(i_episode, round(total_reward, 3)))
+env.close()
