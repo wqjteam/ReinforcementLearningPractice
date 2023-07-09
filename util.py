@@ -22,3 +22,20 @@ def preprocess(observation):
     # plt.figure(4)
     # plt.imshow(x)
     return x.transpose((2, 0, 1))    #transpose 是将数据结构进行转置https://blog.csdn.net/u012762410/article/details/78912667
+
+def action_mapping(model_output_act, low_bound, high_bound):
+    """ mapping action space [-1, 1] of model output
+        to new action space [low_bound, high_bound].
+
+    Args:
+        model_output_act: np.array, which value is in [-1, 1]
+        low_bound: float, low bound of env action space
+        high_bound: float, high bound of env action space
+
+    Returns:
+        action: np.array, which value is in [low_bound, high_bound]
+    """
+    assert high_bound > low_bound
+    action = low_bound + (model_output_act - (-1.0)) * (
+        (high_bound - low_bound) / 2.0)
+    return action
