@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from parl.algorithms.torch import DDPG
+
 from parl.utils import logger
 # 将神经网络输出映射到对应的 实际动作取值范围 内
 
@@ -14,6 +14,7 @@ from parl.utils import ReplayMemory  # 经验回放
 
 from rlschool import make_env  # 使用 RLSchool 创建飞行器环境
 
+from model.DDPG import DDPG
 from util import action_mapping
 
 ACTOR_LR = 0.0002  # Actor网络更新的 learning rate
@@ -24,10 +25,11 @@ TAU = 0.001  # target_model 跟 model 同步参数 的 软更新参数
 MEMORY_SIZE = 1e6  # replay memory的大小，越大越占用内存
 MEMORY_WARMUP_SIZE = 1e4  # replay_memory 里需要预存一些经验数据，再从里面sample一个batch的经验让agent去learn
 REWARD_SCALE = 0.01  # reward 的缩放因子
-BATCH_SIZE = 256  # 每次给agent learn的数据数量，从replay memory随机里sample一批数据出来
+BATCH_SIZE = 2  # 每次给agent learn的数据数量，从replay memory随机里sample一批数据出来
 TRAIN_TOTAL_STEPS = 1e6  # 总训练步数
 TEST_EVERY_STEPS = 1e4  # 每个N步评估一下算法效果，每次评估5个episode求平均reward
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class ActorModel(nn.Module):
     def __init__(self, obs_dim, act_dim):
@@ -52,7 +54,7 @@ class ActorModel(nn.Module):
         #
         ######################################################################
         ######################################################################
-        obs=torch.tensor(obs, dtype=torch.float32)
+        # obs=torch.tensor(obs, dtype=torch.float32)
         hidden1 = F.relu(self.fc1(obs))
         hidden2 = F.relu(self.fc2(hidden1))
         logits = F.tanh(self.fc3(hidden2))
@@ -122,17 +124,13 @@ class QuadrotorAgent(nn.Module):
         # 注意，在最开始的时候，先完全同步target_model和model的参数
         self.alg.sync_target(decay=0)
 
-
-
     def predict(self, obs):
         obs = obs.unsqueeze(dim=0)
         pred_act = self.alg.predict(obs)
         return pred_act
 
     def learn(self, obs, act, reward, next_obs, terminal):
-
-        _, critic_cost = self.alg.learn(obs, act, reward, next_obs,
-                                             terminal)
+        _, critic_cost = self.alg.learn(obs, act, reward, next_obs, terminal)
         self.alg.sync_target()
         return critic_cost
 
@@ -150,7 +148,7 @@ def run_episode(env, agent, rpm):
         # 给输出动作增加探索扰动，输出限制在 [-1.0, 1.0] 范围内
         action = torch.clip(torch.normal(action, 1.0), -1.0, 1.0)
         # 动作映射到对应的 实际动作取值范围 内, action_mapping是从parl.utils那里import进来的函数
-        action = action_mapping(action, env.action_space.low[0],env.action_space.high[0])
+        action = action_mapping(action, env.action_space.low[0], env.action_space.high[0])
 
         next_obs, reward, done, info = env.step(action.detach().cpu().numpy())
         rpm.append(obs, action.detach().cpu().numpy(), REWARD_SCALE * reward, next_obs, done)
@@ -158,8 +156,11 @@ def run_episode(env, agent, rpm):
         if rpm.size() > MEMORY_WARMUP_SIZE:
             batch_obs, batch_action, batch_reward, batch_next_obs, \
             batch_terminal = rpm.sample_batch(BATCH_SIZE)
-            critic_cost = agent.learn(batch_obs, batch_action, batch_reward,
-                                      batch_next_obs, batch_terminal)
+            critic_cost = agent.learn(torch.tensor(batch_obs).unsqueeze(dim=0).to(device),
+                                      torch.tensor(batch_action).unsqueeze(dim=0).to(device),
+                                      batch_reward,
+                                      torch.tensor(batch_next_obs).unsqueeze(dim=0).to(device),
+                                      batch_terminal)
 
         obs = next_obs
         total_reward += reward
@@ -180,7 +181,7 @@ def evaluate(env, agent):
             batch_obs = torch.tensor(obs).unsqueeze(dim=0).to(device)
             action = agent.predict(batch_obs).to(device)
             action = torch.squeeze(action)
-            action = action_mapping(action, env.action_space.low[0],env.action_space.high[0])
+            action = action_mapping(action, env.action_space.low[0], env.action_space.high[0])
 
             next_obs, reward, done, info = env.step(action.detach().cpu().numpy())
 
@@ -210,7 +211,7 @@ act_dim = env.action_space.shape[0]
 ######################################################################
 model = QuadrotorModel(act_dim=act_dim, obs_dim=obs_dim)
 algorithm = DDPG(model=model, gamma=GAMMA, tau=TAU, actor_lr=ACTOR_LR, critic_lr=CRITIC_LR)
-agent = QuadrotorAgent(algorithm, obs_dim, act_dim=act_dim)
+agent = QuadrotorAgent(algorithm, obs_dim, act_dim=act_dim).to(device)
 
 # parl库也为DDPG算法内置了ReplayMemory，可直接从 parl.utils 引入使用
 rpm = ReplayMemory(int(MEMORY_SIZE), obs_dim, act_dim)
@@ -234,7 +235,7 @@ if __name__ == '__main__':
 
             # 每评估一次，就保存一次模型，以训练的step数命名
             ckpt = 'model_dir/steps_{}.ckpt'.format(total_steps)
-            torch.save(agent.state_dict(),ckpt)
+            torch.save(agent.state_dict(), ckpt)
 
 ######################################################################
 ######################################################################
