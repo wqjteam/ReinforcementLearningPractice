@@ -68,7 +68,8 @@ class DDPG(nn.Module):
         # Compute the target Q value
         target_Q = self.target_model.value(next_obs,
                                            self.target_model.policy(next_obs))
-        target_Q = reward + ((1. - terminal) * self.gamma * target_Q).detach()
+
+        target_Q = torch.tensor(reward).to(target_Q.device) + (torch.tensor((1. - terminal)* self.gamma,device=target_Q.device,dtype=torch.float32) * target_Q).detach()
 
         # Get current Q estimate
         current_Q = self.model.value(obs, action)
@@ -99,3 +100,5 @@ class DDPG(nn.Module):
                                        self.target_model.parameters()):
             target_param.data.copy_((1 - decay) * param.data +
                                     decay * target_param.data)
+
+    # def

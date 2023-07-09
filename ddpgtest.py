@@ -25,7 +25,7 @@ TAU = 0.001  # target_model 跟 model 同步参数 的 软更新参数
 MEMORY_SIZE = 1e6  # replay memory的大小，越大越占用内存
 MEMORY_WARMUP_SIZE = 1e4  # replay_memory 里需要预存一些经验数据，再从里面sample一个batch的经验让agent去learn
 REWARD_SCALE = 0.01  # reward 的缩放因子
-BATCH_SIZE = 2  # 每次给agent learn的数据数量，从replay memory随机里sample一批数据出来
+BATCH_SIZE = 256  # 每次给agent learn的数据数量，从replay memory随机里sample一批数据出来
 TRAIN_TOTAL_STEPS = 1e6  # 总训练步数
 TEST_EVERY_STEPS = 1e4  # 每个N步评估一下算法效果，每次评估5个episode求平均reward
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -154,12 +154,11 @@ def run_episode(env, agent, rpm):
         rpm.append(obs, action.detach().cpu().numpy(), REWARD_SCALE * reward, next_obs, done)
 
         if rpm.size() > MEMORY_WARMUP_SIZE:
-            batch_obs, batch_action, batch_reward, batch_next_obs, \
-            batch_terminal = rpm.sample_batch(BATCH_SIZE)
-            critic_cost = agent.learn(torch.tensor(batch_obs).unsqueeze(dim=0).to(device),
-                                      torch.tensor(batch_action).unsqueeze(dim=0).to(device),
+            batch_obs, batch_action, batch_reward, batch_next_obs, batch_terminal = rpm.sample_batch(BATCH_SIZE)
+            critic_cost = agent.learn(torch.tensor(batch_obs).to(device),
+                                      torch.tensor(batch_action).to(device),
                                       batch_reward,
-                                      torch.tensor(batch_next_obs).unsqueeze(dim=0).to(device),
+                                      torch.tensor(batch_next_obs).to(device),
                                       batch_terminal)
 
         obs = next_obs
@@ -247,5 +246,6 @@ if __name__ == '__main__':
 ckpt = 'model_dir/steps_??????.ckpt'  # 请设置ckpt为你训练中效果最好的一次评估保存的模型文件名称
 
 agent.restore(ckpt)
+env.render()
 evaluate_reward = evaluate(env, agent)
 logger.info('Evaluate reward: {}'.format(evaluate_reward))  # 打印评估的reward
