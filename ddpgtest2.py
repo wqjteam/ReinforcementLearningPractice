@@ -22,7 +22,7 @@ ENV_NAME = 'Pendulum-v1'
 var = 3.0 # the controller of exploration which will decay during training process
 
 
-env = gym.make(ENV_NAME, render_mode="rgb_array")
+env = gym.make(ENV_NAME ,render_mode='human')
 env = env.unwrapped
 
 s_dim = env.observation_space.shape[0]
