@@ -1,4 +1,6 @@
 import os
+import time
+
 import numpy as np
 
 import parl
@@ -176,7 +178,8 @@ def evaluate(env, agent):
         obs = env.reset()
         total_reward, steps = 0, 0
         while True:
-
+            env.render()
+            # time.sleep(100)
             batch_obs = torch.tensor(obs).unsqueeze(dim=0).to(device)
             action = agent.predict(batch_obs).to(device)
             action = torch.squeeze(action)
@@ -244,8 +247,8 @@ if __name__ == '__main__':
 ######################################################################
 ######################################################################
 ckpt = 'model_dir/steps_??????.ckpt'  # 请设置ckpt为你训练中效果最好的一次评估保存的模型文件名称
+agent.load_state_dict(torch.load(ckpt))
 
-agent.restore(ckpt)
 env.render()
 evaluate_reward = evaluate(env, agent)
 logger.info('Evaluate reward: {}'.format(evaluate_reward))  # 打印评估的reward
