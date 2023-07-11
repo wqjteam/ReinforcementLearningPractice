@@ -68,7 +68,8 @@ class MYDDPG(nn.Module):
     # 存储序列数据
     def store_transition(self, s, a, r, s_next):
         transition = np.hstack((s, a, [r], s_next))
-        index = self.pointer % self.memory_capacticy #通过index的除余，直接覆盖掉旧的数据
+        # 通过index的除余，直接覆盖掉旧的数据
+        index = self.pointer % self.memory_capacticy
         self.memory[index, :] = transition
         self.pointer += 1
 
